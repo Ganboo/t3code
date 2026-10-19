@@ -839,7 +839,7 @@ describe("DesktopBackendManager", () => {
 
         yield* instance.start;
         yield* Deferred.await(firstProbe);
-        yield* TestClock.adjust(Duration.minutes(1));
+        yield* TestClock.adjust(Duration.seconds(2));
         assert.isTrue(yield* Deferred.isDone(ready), "a reachable route must finish readiness");
         assert.equal((yield* Deferred.await(ready)).href, expectedUrl);
         assert.equal(
