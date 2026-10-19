@@ -562,13 +562,7 @@ export const runBackendProcess = Effect.fn("runBackendProcess")(function* (
           probeUrl(options.httpBaseUrl, readinessTimeout),
           probeUrl(options.fallbackHttpBaseUrl, readinessTimeout).pipe(
             // Give loopback a bounded preference once the fallback is ready.
-            Effect.flatMap((fallbackUrl) =>
-              probeUrl(options.httpBaseUrl, DEFAULT_BACKEND_READINESS_REQUEST_TIMEOUT).pipe(
-                Effect.catchTags({
-                  BackendReadinessTimeoutError: () => Effect.succeed(fallbackUrl),
-                }),
-              ),
-            ),
+            Effect.tap(() => Effect.sleep(DEFAULT_BACKEND_READINESS_REQUEST_TIMEOUT)),
           ),
         );
   const probeReadiness = Effect.fn("desktop.backendProcess.probeReadiness")(() =>
@@ -715,11 +709,18 @@ export const makeBackendInstance = Effect.fn("makeBackendInstance")(function* (
         const resetFatalPreflightCounter =
           !current.desiredRunning && current.preflightFailureAttempt > 0;
         yield* cancelRestart;
+        const previousHttpBaseUrl = Option.getOrUndefined(current.config)?.httpBaseUrl;
         yield* Ref.update(state, (latest) => ({
           ...latest,
           desiredRunning: true,
           ready: false,
-          config: Option.some(config.value),
+          // Keep renderer bootstraps stable until readiness selects this run's URL.
+          config: Option.some(
+            previousHttpBaseUrl !== undefined &&
+              previousHttpBaseUrl.href === config.value.fallbackHttpBaseUrl?.href
+              ? { ...config.value, httpBaseUrl: previousHttpBaseUrl }
+              : config.value,
+          ),
           preflightFailureAttempt: resetFatalPreflightCounter ? 0 : latest.preflightFailureAttempt,
         }));
 
